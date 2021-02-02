@@ -1,5 +1,6 @@
 from Node import Node
 import os
+import shutil
 
 class Huffman:
     def __init__(self):
@@ -57,7 +58,7 @@ class Huffman:
         if node is None:
             return
         if node.left is None and node.right is None:
-            self.encoTree += "1"
+            #self.encoTree += "1"
             self.encoTree += node.data
         else:
             self.encoTree += "0"
@@ -100,7 +101,49 @@ class Huffman:
         #print(Forest[0])
         #print(Forest)
         self.root = Forest[0]
+        pass
 
+    def readNode(self, iter_s):
+        c = next(iter_s, -1)
+        if c is not -1:
+            if c is not "0":
+                return Node(data=c)
+            else:
+                left = self.readNode(iter_s)
+                right = self.readNode(iter_s)
+                return Node(l=left, r=right)
+
+    def saveFile(self, fName):
+        # Writes the tree in a file
+        fOut = open(fName + "/" + fName + ".tree", "w")
+        fOut.write(self.encoTree)
+        fOut.close()
+        # writes the encoded text in a different file, it uses the 
+        # flag wb to write binaries
+        fOut = open(fName + "/" + fName + ".etxt", "wb")
+        # This is a little messy, but it converts the encoded text 
+        # that is a string of 0 and 1 to binaries with the function 
+        # int(x,2) the second parameter convert the string to a binary 
+        # number, then with the method to_byte from the int class it
+        # creates a byte stream to write in the file 
+        fOut.write((int(self.encoText[::-1], 2).to_bytes(int(len(self.encoText)/8)+1, 'little')))
+        fOut.close()
+        pass
+
+    def decodeText(self, nBits):
+        tmp = self.root
+        i=0
+        for c in self.encoText:
+            if tmp.left == None and tmp.right == None:
+                print(tmp.data, end="")
+                tmp = self.root
+            if c == "0":
+                tmp = tmp.left
+            else:
+                tmp = tmp.right
+            #i += 1
+            #if nBits == i:
+            #    break
         pass
 
     def menu(self):
@@ -119,15 +162,22 @@ class Huffman:
             opt = int(input(">> "))
             while opt < 1 or opt > 4:
                 opt = int(input("Wrong option. Try again\n>> "))
-            if opt == 1:
+            if opt in (1,2):
                 os.system('clear')
-                print("Write text to compress")
-                inputStr = input(">> ")
+                if opt == 1:
+                    print("Write text to compress")
+                    inputStr = input(">> ")
+                else:
+                    print("Write direction to text file to compress")
+                    inputStr = input(">> ")
+                    with open(inputStr, "r") as f:
+                        inputStr = f.read()
                 self.setFrecuencyTable(inputStr)
                 self.setBinaryTree()
                 self.setEncodingTable(self.root)
                 self.setEncodedString(inputStr)
                 self.setEncodedTree(self.root)
+                self.encoTree = str(len(inputStr)) + "," + self.encoTree
                 while True:
                     os.system('clear')
                     print("1.- Show frecuency table")
@@ -149,20 +199,35 @@ class Huffman:
                         self.printEncodingTable()
                         self.printEncodedString(inputStr)
                     if opt2 == 4:
-                        print()
+                        print("Descompressed text            ~= %d B" % (len(inputStr)))
+                        print("Compressed text (tree + text) ~= %d B" % (len(self.encoTree)+len(self.encoText)/8+1))
+                        print("Efficiency                    ~= %.2f" % ((len(inputStr)) / int((len(self.encoTree)+len(self.encoText)/8+1))))
                     if opt2 == 5:
+                        fName = input("Write name of archive\n>> ")
+                        if os.path.exists(fName):
+                            shutil.rmtree(fName)
+                        os.mkdir(fName)
+                        self.saveFile(fName)
                         break
                     if opt2 == 6:
                         break
                     input("Press enter key to continue...\n")
-
-            elif opt == 2:
-                print()
             elif opt == 3:
-                print()
+                fName = input("Write name of the directory\n>> ")
+                with open(fName + "/" + fName + ".etxt" , "rb") as f:
+                    textInBytes = f.read()
+                with open(fName + "/" + fName + ".tree" , "r") as f:
+                    bits        = f.read()
+                nChar         = bits.split(sep=",")[0]
+                self.encoTree = bits.split(sep=",",maxsplit=1)[1]
+                # convert the bits to a string the same way
+                self.encoText = format(int.from_bytes(textInBytes, 'little'), str(int(int(nChar)/8)+1) + 'b')[::-1]
+                # Creates an iterable to recursively call the next method
+                iter_s = iter(self.encoTree)
+                self.root = self.readNode(iter_s)
+                self.decodeText(nChar)
+                input("\nPress enter key to continue...\n")
             else:
                 os.system('clear')
                 exit()
         pass
-
-
